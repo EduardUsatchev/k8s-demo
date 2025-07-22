@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-pv-volume
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain    # <-- change here
+  hostPath:
+    path: /mnt/data      # for demo only! not for production
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: task-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-pv-deployment
+  labels:
+    appname: pvpod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      appname: pvpod
+  template:
+    metadata:
+      labels:
+        appname: pvpod
+    spec:
+      volumes:
+        - name: task-pv-storage
+          persistentVolumeClaim:
+            claimName: task-pv-claim
+      containers:
+        - name: task-pv-container
+          image: nginx
+          ports:
+            - containerPort: 80
+              name: http-server
+          volumeMounts:
+            - mountPath: "/usr/share/nginx/html"
+              name: task-pv-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-to-pvc
+spec:
+  selector:
+    appname: pvpod
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30036    # optional, or omit to auto-assign
